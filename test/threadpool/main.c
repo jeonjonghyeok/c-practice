@@ -5,13 +5,16 @@
 #include "queue.h"
 #include <arpa/inet.h>
 #include <string.h>
+#include <sys/wait.h>
 #define POOL_SIZE 10
+#define BUF_SIZE 100
 
 
 void createPool();
 void *func_main(void *data);
 void *func_socket(void *data);
 void createSocketThread(char *port);
+int calculate(int a, int b, char op);
 
 pthread_mutex_t mutex;
 pthread_cond_t cond_work;
@@ -21,6 +24,7 @@ struct task_queue queue;
 
 int main(int argc, char *argv[])
 {
+  int status;
   if(argc != 2)
   {
     printf("./main port");
@@ -31,6 +35,9 @@ int main(int argc, char *argv[])
   createSocketThread(argv[1]);
   createQueue(&queue);
   createPool();
+  wait(&status);
+  int a;
+  scanf("%d",&a);
 
   return 0;
 }
@@ -92,16 +99,21 @@ void *func_socket(void *data)
   while(1)
   {
     printf("socket port= %d\n",port);
+    pthread_mutex_lock(&mutex);
     cli_sock = accept(serv_sock, (struct sockaddr *)&cli_addr, (socklen_t *)&cli_addr_size);
+    pthread_mutex_unlock(&mutex);
 
     task.sock_num = cli_sock;
     enQueue(&queue,task);
   }
+  close(serv_sock);
+  close(cli_sock);
 }
 void *func_main(void *data)
 {
   int id = (int)data;
   struct task tmp;
+  char buf[BUF_SIZE];
   while(1)
   {
     printf("test%d\n",id);
@@ -113,7 +125,55 @@ void *func_main(void *data)
     }
     tmp= deQueue(&queue);
 
+    
     printf("[task_thread%d]socket_num = %d\n",id,tmp.sock_num);
+    read(tmp.sock_num,buf,sizeof(buf));
+
+    char *ptr = strtok(buf," ");
+    int a,b, result;
+    char op;
+    //char result[BUF_SIZE];
+
+    a = atoi(ptr);
+    ptr = strtok(NULL," ");
+    b = atoi(ptr);
+    ptr = strtok(NULL," ");
+    op = *ptr;
+
+
+    result = calculate(a,b,op);
+    sprintf(buf,"%d",result);
+    write(tmp.sock_num,buf,sizeof(result));
+
     sleep(5);
   }
+}
+
+int calculate(int a, int b, char op)
+{
+  int result;
+
+  switch(op)
+  {
+    case '+':
+      result = a+b;
+      break;
+    case '-':
+      if(a>b)
+        result = a-b;
+      else
+        result = b-a;
+      break;
+    case '*':
+      result = a*b;
+      break;
+    case '/':
+      result = a/b;
+      break;
+    default:
+      printf("잘못입력");
+      exit(1);
+      break;
+  }
+  return result;
 }
