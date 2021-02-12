@@ -11,7 +11,6 @@ int main(int argc, char *argv[])
 {
   int sock;
   char *name;
-  char tmp[10];
   struct sockaddr_in serv_addr;
 
   if(argc != 4)
@@ -34,19 +33,14 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
-  
-  printf("a b operation 입력\n예시: 3 2 +\n");
-  scanf("%s",tmp);
-  printf("%s",tmp);
-
   printf("name: %s\n",name);
   write(sock, name, sizeof(name));
   char buf[100];
   int str_len;
 
-    str_len = read(sock,buf,99);
-    buf[str_len] = 0;
-    printf("buf = %s",buf);
+  str_len = read(sock,buf,99);
+  buf[str_len] = 0;
+  printf("buf = %s\n",buf);
 
 
   close(sock);
