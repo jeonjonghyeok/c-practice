@@ -17,6 +17,10 @@ typedef struct task_queue
 void enQueue(task_queue_t *q, task_t task);
 task_t deQueue(task_queue_t *q);
 void createQueue(task_queue_t *q);
+int isEmpty(task_queue_t *q);
+int isFull(task_queue_t *q);
+
+
 
 void print();
 #endif

@@ -2,6 +2,21 @@
 #include <stdlib.h>
 #include "queue.h"
 
+int isEmpty(task_queue_t *q)
+{
+  if(q->rear == -1)
+    return 1;
+  else
+    return 0;
+}
+int isFull(task_queue_t *q)
+{
+  if((q->rear+1) % MAX_QUEUE_SIZE == q->front)
+    return 1;
+  else
+    return 0;
+}
+
 void enQueue(task_queue_t *q,task_t task)
 {
   if(q->rear == -1)
@@ -10,7 +25,7 @@ void enQueue(task_queue_t *q,task_t task)
     q->rear = q->front;
     return;
   }
-  if((q->rear+1)%MAX_QUEUE_SIZE == q->front)
+  if(isFull(q))
   {
     printf("this is overflow\n");
     return;
@@ -22,7 +37,7 @@ void enQueue(task_queue_t *q,task_t task)
 task_t deQueue(task_queue_t *q)
 {
   task_t task;
-  if(q->rear== -1)
+  if(isEmpty(q)==1)
   {
     printf("this is underflow\n");
     exit(1);

@@ -17,7 +17,7 @@ pthread_mutex_t mutex;
 pthread_cond_t cond_work;
 pthread_cond_t cond_main;
 
-struct task_queue *queue;
+struct task_queue queue;
 
 int main(int argc, char *argv[])
 {
@@ -28,23 +28,9 @@ int main(int argc, char *argv[])
 
   }
 
-
   createSocketThread(argv[1]);
-
-  createQueue(queue);
-
-  struct task task;
-  task.sock_num = 10;
-  task.task_num = 10;
-
-  //enQueue(queue,task);
-  //printf("%d\n",deQueue(queue).sock_num);
-
-
+  createQueue(&queue);
   createPool();
-
-
-
 
   return 0;
 }
@@ -109,7 +95,7 @@ void *func_socket(void *data)
     cli_sock = accept(serv_sock, (struct sockaddr *)&cli_addr, (socklen_t *)&cli_addr_size);
 
     task.sock_num = cli_sock;
-    enQueue(queue,task);
+    enQueue(&queue,task);
   }
 }
 void *func_main(void *data)
@@ -120,9 +106,14 @@ void *func_main(void *data)
   {
     printf("test%d\n",id);
 
-    //tmp= deQueue(queue);
+    if(isEmpty(&queue))
+    {
+      sleep(5);
+      continue;
+    }
+    tmp= deQueue(&queue);
 
-    //printf("[task_thread%d]socket_num = %d\n",id,tmp.sock_num);
+    printf("[task_thread%d]socket_num = %d\n",id,tmp.sock_num);
     sleep(5);
   }
 }
