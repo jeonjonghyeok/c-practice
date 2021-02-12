@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "queuelib.h"
+#include "queue.h"
 
 void enQueue(task_queue_t *q,task_t task)
 {
@@ -44,6 +44,12 @@ void createQueue(task_queue_t *q)
 {
   q->front = 0;
   q->rear = -1;
+}
+
+void print()
+{
+  printf("test");
+
 }
 
 

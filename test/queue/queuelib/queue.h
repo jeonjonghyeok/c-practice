@@ -1,5 +1,6 @@
 #ifndef __QUEUE_H__
 #define __QUEUE_H__
+#define MAX_QUEUE_SIZE 5
 
 typedef struct task
 {
@@ -15,8 +16,9 @@ typedef struct task_queue
 
 void enQueue(task_queue_t *q, task_t task);
 task_t deQueue(task_queue_t *q);
-task_queue_t *createQueue();
+void createQueue(task_queue_t *q);
 
+void print();
 #endif
 
 
