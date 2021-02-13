@@ -6,22 +6,28 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <sys/wait.h>
+
 #define POOL_SIZE 3 
 #define BUF_SIZE 100
 
 
 void createPool();
-void *func_main(void *data);
+void *func_work(void *data);
 void *func_socket(void *data);
 void createSocketThread(char *port);
+void destroyResource();
 
 pthread_mutex_t mutex;
 pthread_cond_t cond_work;
 pthread_cond_t cond_main;
 
+int serv_sock, cli_sock, cli_addr_size;
+int close_flag = 0;
+int work_cnt= 0;
+
 struct task_queue queue;
-  int serv_sock, cli_sock, cli_addr_size;
-  struct sockaddr_in serv_addr, cli_addr;
+struct sockaddr_in serv_addr, cli_addr;
+
 
 int main(int argc, char *argv[])
 {
@@ -36,7 +42,15 @@ int main(int argc, char *argv[])
   createQueue(&queue);
   createPool();
   int a;
+  printf("종료 -1\n");
   scanf("%d",&a);
+
+  if(a == -1)
+  {
+    printf("완료된 작업 수%d\n",work_cnt);
+    close_flag = 1;
+    void destroyResource();
+  }
 
   return 0;
 }
@@ -80,7 +94,7 @@ void createPool()
 
   for(i=0;i<POOL_SIZE;i++)
   {
-    pthread_create(&thread, NULL, func_main,(void *)(long)i);
+    pthread_create(&thread, NULL, func_work,(void *)(long)i);
     pthread_detach(thread);
   }
 }
@@ -88,12 +102,13 @@ void *func_socket(void *data)
 {
   struct task task;
   int id = (int)data;
-  while(1)
+  while(close_flag == 0)
   {
     cli_sock = accept(serv_sock, (struct sockaddr *)&cli_addr, (socklen_t *)&cli_addr_size);
     if(cli_sock == -1)
       continue;
-    printf("[%d]socket call, cli[%d]\n",id, cli_sock);
+    printf("socket[%d] requested!!\n", cli_sock);
+
 
     task.sock_num = cli_sock;
     enQueue(&queue,task);
@@ -101,32 +116,41 @@ void *func_socket(void *data)
   close(serv_sock);
   close(cli_sock);
 }
-void *func_main(void *data)
+void *func_work(void *data)
 {
   int id = (int)data;
   struct task tmp;
   char buf[BUF_SIZE];
-  while(1)
+  while(close_flag == 0)
   {
     pthread_mutex_lock(&mutex);
     if(isEmpty(&queue))
     {
       pthread_mutex_unlock(&mutex);
+      usleep(1);
       continue;
     }
     else
     {
-      printf("thread%d work start\n",id);
       tmp= deQueue(&queue);
       pthread_mutex_unlock(&mutex);
-      printf("[task_thread%d]socket_num = %d\n",id,tmp.sock_num);
+      printf("thread[%d] task socket[%d] work start\n",id,tmp.sock_num);
       read(tmp.sock_num,buf,sizeof(buf));
 
-      printf("[task_thread%d]buf=%s\n",id,buf);
-
-      sleep(30);
+      sleep(20);
       write(tmp.sock_num,buf,sizeof(buf));
-      printf("thread%d work done!\n",id);
+      printf("thread[%d] work done!\n",id);
+      pthread_mutex_lock(&mutex);
+      work_cnt++;
+      pthread_mutex_unlock(&mutex);
     }
   }
+  pthread_exit((void *)0);
+}
+
+void destroyResource()
+{
+  pthread_mutex_destroy(&mutex);
+  pthread_cond_destroy(&cond_work);
+  pthread_cond_destroy(&cond_main);
 }
