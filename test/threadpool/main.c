@@ -6,6 +6,8 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <signal.h>
+#include <errno.h>
 
 #define POOL_SIZE 3 
 #define BUF_SIZE 100
@@ -14,8 +16,10 @@
 void createPool();
 void *func_work(void *data);
 void *func_socket(void *data);
+void *func_monitor(void *data);
 void createSocketThread(char *port);
 void destroyResource();
+void createMonitorThread();
 
 pthread_mutex_t mutex;
 pthread_cond_t cond_work;
@@ -25,7 +29,8 @@ int serv_sock, cli_sock, cli_addr_size;
 int close_flag = 0;
 int work_cnt= 0;
 
-struct task_queue queue;
+pthread_t tids[POOL_SIZE];
+task_queue_t queue;
 struct sockaddr_in serv_addr, cli_addr;
 
 
@@ -41,6 +46,7 @@ int main(int argc, char *argv[])
   createSocketThread(argv[1]);
   createQueue(&queue);
   createPool();
+  createMonitorThread();
   int a;
   printf("종료 -1\n");
   scanf("%d",&a);
@@ -54,7 +60,12 @@ int main(int argc, char *argv[])
 
   return 0;
 }
-
+void createMonitorThread()
+{
+  pthread_t thread;
+  pthread_create(&thread, NULL, func_monitor,(void *)(long)0);
+  pthread_detach(thread);
+}
 void createSocketThread(char *port)
 {
   pthread_t thread;
@@ -95,20 +106,22 @@ void createPool()
   for(i=0;i<POOL_SIZE;i++)
   {
     pthread_create(&thread, NULL, func_work,(void *)(long)i);
+    tids[i] = thread;
     pthread_detach(thread);
   }
 }
 void *func_socket(void *data)
 {
-  struct task task;
-  int id = (int)data;
+  task_t task;
   while(close_flag == 0)
   {
     cli_sock = accept(serv_sock, (struct sockaddr *)&cli_addr, (socklen_t *)&cli_addr_size);
     if(cli_sock == -1)
+    {
+      usleep(100);
       continue;
+    }
     printf("socket[%d] requested!!\n", cli_sock);
-
 
     task.sock_num = cli_sock;
     enQueue(&queue,task);
@@ -119,15 +132,16 @@ void *func_socket(void *data)
 void *func_work(void *data)
 {
   int id = (int)data;
-  struct task tmp;
+  task_t tmp;
   char buf[BUF_SIZE];
+
   while(close_flag == 0)
   {
     pthread_mutex_lock(&mutex);
     if(isEmpty(&queue))
     {
       pthread_mutex_unlock(&mutex);
-      usleep(1);
+      usleep(100);
       continue;
     }
     else
@@ -146,6 +160,29 @@ void *func_work(void *data)
     }
   }
   pthread_exit((void *)0);
+}
+void *func_monitor(void *data)
+{
+  int i,status;
+  for(i=0;i<POOL_SIZE;i++)
+  {
+    printf("thread[%d]= %lu\n",i,tids[i]);
+  }
+  while(close_flag == 0)
+  {
+    for(i=0;i<POOL_SIZE;i++)
+    {
+      status = pthread_kill(tids[i],0);
+      if(status == ESRCH)
+        printf("tid[%lu] is not exist...\n",tids[i]);
+      else if(status == EINVAL)
+        printf("tid[%lu] is alive\n",tids[i]);
+      else
+        printf("tid[%lu] is alive\n",tids[i]);
+
+    }
+    sleep(30);
+  }
 }
 
 void destroyResource()
