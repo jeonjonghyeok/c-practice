@@ -30,9 +30,10 @@ task_queue_t queue;
 
 struct sockaddr_in serv_addr, cli_addr;
 
-int serv_sock, cli_sock, cli_addr_size, port, state;
+int serv_sock, cli_sock, cli_addr_size, port,status;
 int close_flag = 0;
 int work_cnt= 0;
+
 
 int main(int argc, char *argv[])
 {
@@ -47,34 +48,61 @@ int main(int argc, char *argv[])
   master_pid = fork();
   if(master_pid == 0)
    masterProcess(argv); 
-  
+
+  wait(&status);
 
   return 0;
 }
 void masterProcess()
 {
-  int a;
-  pid_t socket_pid, pool_pid;
+  int a, status;
+  pid_t socket_pid, pool_pid, wait_pid;
 
   createQueue(&queue);
   socket_pid = fork();
   pool_pid = fork();
-  if(socket_pid == 0)
-    createMonitorThread();
-  if(pool_pid == 0)
-    createPoolProcess();
-
-  //master area will if add
-  printf("종료 -1\n");
-  scanf("%d",&a);
-
-  if(a == -1)
+  if(socket_pid < 0 || pool_pid < 0)
+    printf("fork error\n");
+  else if(socket_pid == 0 && pool_pid != 0)
   {
-    printf("완료된 작업 수%d\n",work_cnt);
-    close_flag = 1;
-    void destroyResource();
+    printf("socket pid= %ld\n",(long)getpid());
+    socketProcess();
   }
-  wait(&state);
+  else if(pool_pid == 0 && socket_pid != 0)
+  {
+    printf("pool pid= %ld\n",(long)getpid());
+    createPoolProcess();
+  }
+  else if(socket_pid > 0)
+  {
+    printf("master process pid= %ld\n",(long)getpid());
+    printf("완료된 작업 수%d\n",work_cnt);
+    //close_flag = 1;
+    wait_pid = wait(&status);
+    wait_pid = wait(&status);
+    //destroyResource();
+    printf(" 종료 -1\n");
+    scanf("%d",&a);
+    if(a==-1)
+    {
+      destroyResource();
+      
+    }
+
+    if(wait_pid == -1)
+    {
+      printf("error number\n",errno);
+      perror("wait 함수 오류 반환");
+    }
+    else
+    {
+      if(WIFEXITED(status))
+        printf("wait: 자식 프로세스 정상 종료%ld\n",wait_pid);
+      else if(WIFSIGNALED(status))
+        printf("wait: 자식 프로세스 비정상 종료\n");
+    }
+
+  }
 }
 void createMonitorThread()
 {
@@ -84,10 +112,10 @@ void createMonitorThread()
 }
 void socketProcess()
 {
-  printf("socket Process\n");
-
   serv_sock = socket(PF_INET,SOCK_STREAM,0);
   memset(&serv_addr,0,sizeof(serv_addr));
+  cli_addr_size = sizeof(cli_addr);
+  task_t task;
 
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = port; 
@@ -104,7 +132,21 @@ void socketProcess()
     exit(1);
   }
 
-  cli_addr_size = sizeof(cli_addr);
+  while(close_flag == 0)
+  {
+    cli_sock = accept(serv_sock, (struct sockaddr *)&cli_addr, (socklen_t *)&cli_addr_size);
+    if(cli_sock == -1)
+    {
+      usleep(100);
+      continue;
+    }
+    printf("socket[%d] requested!!\n", cli_sock);
+
+    task.sock_num = cli_sock;
+    enQueue(&queue,task);
+  }
+  close(serv_sock);
+  close(cli_sock);
 }
 
 void createPoolProcess()
@@ -136,6 +178,7 @@ void *func_socket(void *data)
 
     task.sock_num = cli_sock;
     enQueue(&queue,task);
+    //printf("%d\n",queue.task[0].task_num);
   }
   close(serv_sock);
   close(cli_sock);
@@ -190,7 +233,6 @@ void *func_monitor(void *data)
         printf("tid[%lu] is alive\n",tids[i]);
       else
         printf("tid[%lu] is alive\n",tids[i]);
-
     }
     sleep(30);
   }
@@ -198,5 +240,6 @@ void *func_monitor(void *data)
 
 void destroyResource()
 {
+  close_flag = 1;
   pthread_mutex_destroy(&mutex);
 }
