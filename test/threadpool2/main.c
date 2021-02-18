@@ -86,6 +86,7 @@ void masterProcess()
     if(a==-1)
     {
       destroyResource();
+      exit(1);
       
     }
 
@@ -144,6 +145,7 @@ void socketProcess()
 
     task.sock_num = cli_sock;
     enQueue(&queue,task);
+    printf("enqueue queue[0]: %d\n",queue.task[0].sock_num);
   }
   close(serv_sock);
   close(cli_sock);
@@ -162,8 +164,12 @@ void createPoolProcess()
     tids[i] = thread;
     pthread_detach(thread);
   }
+  wait(&status);
+  int a;
+  scanf("%d",a);
 }
-void *func_socket(void *data)
+
+/*void *func_socket(void *data)
 {
   task_t task;
   while(close_flag == 0)
@@ -178,28 +184,34 @@ void *func_socket(void *data)
 
     task.sock_num = cli_sock;
     enQueue(&queue,task);
-    //printf("%d\n",queue.task[0].task_num);
+    printf("queue[0]: %d\n",queue.task[0].task_num);
   }
   close(serv_sock);
   close(cli_sock);
 }
+*/
 void *func_work(void *data)
 {
   int id = (int)data;
   task_t tmp;
   char buf[BUF_SIZE];
 
+    printf("work start%d\n",id);
   while(close_flag == 0)
   {
+    printf("while start%d\n",id);
     pthread_mutex_lock(&mutex);
+    printf("threadid = %d queue[0]: %d\n",id,queue.task[0].sock_num);
     if(isEmpty(&queue))
     {
+      printf("empty thread%d\n",id);
       pthread_mutex_unlock(&mutex);
-      usleep(100);
+      sleep(10);
       continue;
     }
     else
     {
+      printf("dequeue start%d\n",id);
       tmp= deQueue(&queue);
       pthread_mutex_unlock(&mutex);
       printf("thread[%d] task socket[%d] work start\n",id,tmp.sock_num);
